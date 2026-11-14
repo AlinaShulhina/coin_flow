@@ -1,22 +1,14 @@
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const reduceMotion = window.matchMedia(
-  '(prefers-reduced-motion: reduce)'
-).matches;
+const SWIPER = 'https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min';
+const FANCY = 'https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.36/dist/fancybox/fancybox';
 
-const SWIPER =
-  'https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min';
-
-const FANCY =
-  'https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.36/dist/fancybox/fancybox';
-
-/* ---------- Завантажувачі з кешуванням ---------- */
+/* ---------- Loaders with caching ---------- */
 
 const loaded = new Map();
 
 function loadResource(url, type) {
-  if (loaded.has(url)) {
-    return loaded.get(url);
-  }
+  if (loaded.has(url)) return loaded.get(url);
 
   const promise = new Promise((resolve, reject) => {
     const el = document.createElement(type === 'css' ? 'link' : 'script');
@@ -30,7 +22,6 @@ function loadResource(url, type) {
     }
 
     el.onload = resolve;
-
     el.onerror = () => {
       el.remove();
       loaded.delete(url);
@@ -41,14 +32,13 @@ function loadResource(url, type) {
   });
 
   loaded.set(url, promise);
-
   return promise;
 }
 
 const loadCSS = (url) => loadResource(url, 'css');
 const loadJS = (url) => loadResource(url, 'js');
 
-/* ---------- Спостереження за секціями ---------- */
+/* ---------- Section observer ---------- */
 
 function whenVisible(el, init, rootMargin = '400px') {
   if (!el) return;
@@ -68,148 +58,126 @@ function whenVisible(el, init, rootMargin = '400px') {
   io.observe(el);
 }
 
-/* ---------- 1. Swiper: відгуки ---------- */
+/* ---------- 1. Swiper: reviews ---------- */
 
-whenVisible(
-  document.getElementById('reviews'),
-  async () => {
-    if (!document.querySelector('.testimonials-swiper')) return;
+whenVisible(document.getElementById('reviews'), async () => {
+  if (!document.querySelector('.testimonials-swiper')) return;
 
-    try {
-      await Promise.all([
-        loadCSS(`${SWIPER}.css`),
-        loadJS(`${SWIPER}.js`)
-      ]);
+  try {
+    await Promise.all([loadCSS(`${SWIPER}.css`), loadJS(`${SWIPER}.js`)]);
 
-      if (typeof Swiper === 'undefined') return;
+    if (typeof Swiper === 'undefined') return;
 
-      new Swiper('.testimonials-swiper', {
-        rewind: true,
-        spaceBetween: 20,
-
-        autoplay: reduceMotion
-          ? false
-          : {
-              delay: 5000,
-              disableOnInteraction: true,
-              pauseOnMouseEnter: true
-            },
-
-        navigation: {
-          nextEl: '.swiper-button-next-custom',
-          prevEl: '.swiper-button-prev-custom'
-        },
-
-        pagination: {
-          el: '.swiper-pagination-custom',
-          clickable: true
-        },
-
-        a11y: {
-          prevSlideMessage: 'Попередній відгук',
-          nextSlideMessage: 'Наступний відгук',
-          paginationBulletMessage:
-            'Перейти до відгуку {{index}}'
-        },
-
-        breakpoints: {
-          640: {
-            slidesPerView: 1.6,
-            spaceBetween: 24
-          },
-
-          1024: {
-            slidesPerView: 2,
-            spaceBetween: 28
-          }
-        }
-      });
-
-    } catch (error) {
-      console.warn('Swiper loading failed:', error);
-    }
+    new Swiper('.testimonials-swiper', {
+      rewind: true,
+      spaceBetween: 20,
+      autoplay: reduceMotion
+        ? false
+        : { delay: 5000, disableOnInteraction: true, pauseOnMouseEnter: true },
+      navigation: {
+        nextEl: '.swiper-button-next-custom',
+        prevEl: '.swiper-button-prev-custom'
+      },
+      pagination: { el: '.swiper-pagination-custom', clickable: true },
+      a11y: {
+        prevSlideMessage: 'Попередній відгук',
+        nextSlideMessage: 'Наступний відгук',
+        paginationBulletMessage: 'Перейти до відгуку {{index}}'
+      },
+      breakpoints: {
+        640: { slidesPerView: 1.6, spaceBetween: 24 },
+        1024: { slidesPerView: 2, spaceBetween: 28 }
+      }
+    });
+  } catch (error) {
+    console.warn('Swiper loading failed:', error);
   }
-);
+});
 
-/* ---------- 2. Fancybox: галерея ---------- */
+/* ---------- 2. Fancybox: gallery ---------- */
 
-whenVisible(
-  document.getElementById('gallery'),
-  async () => {
-    if (!document.querySelector("[data-fancybox='main-gallery']")) {
-      return;
-    }
+whenVisible(document.getElementById('gallery'), async () => {
+  if (!document.querySelector("[data-fancybox='main-gallery']")) return;
 
-    try {
-      await Promise.all([
-        loadCSS(`${FANCY}.css`),
-        loadJS(`${FANCY}.umd.js`)
-      ]);
+  try {
+    await Promise.all([loadCSS(`${FANCY}.css`), loadJS(`${FANCY}.umd.js`)]);
 
-      if (typeof Fancybox === 'undefined') return;
+    if (typeof Fancybox === 'undefined') return;
 
-      Fancybox.bind("[data-fancybox='main-gallery']", {
-        Carousel: {
-          Transition: 'fade'
-        },
-
-        Images: {
-          Panzoom: {
-            maxScale: 3
-          }
-        }
-      });
-
-    } catch (error) {
-      console.warn('Fancybox loading failed:', error);
-    }
+    Fancybox.bind("[data-fancybox='main-gallery']", {
+      Carousel: { Transition: 'fade' },
+      Images: { Panzoom: { maxScale: 3 } }
+    });
+  } catch (error) {
+    console.warn('Fancybox loading failed:', error);
   }
-);
+});
 
-/* ---------- 3. Typed.js: анімація тексту ---------- */
+/* ---------- 3. Typing effect (own code, no library) ----------
+   The first phrase is already in the HTML, so first paint and LCP do not
+   depend on JS. The animation starts only after load + idle. */
 
 const typedEl = document.getElementById('typed-text');
 
-if (typedEl) {
-  if (
-    reduceMotion ||
-    !('IntersectionObserver' in window) ||
-    typeof Typed === 'undefined'
-  ) {
-    typedEl.textContent = 'Фінансова свобода.';
+if (typedEl && !reduceMotion) {
+  const phrases = [
+    'Фінансова свобода.',
+    'Впевненість у завтрашньому дні.',
+    'Керування доходами.'
+  ];
+  const TYPE_MS = 50;
+  const BACK_MS = 30;
+  const HOLD_MS = 1500;
 
-  } else {
-    let typed;
+  let phrase = 0;
+  let pos = phrases[0].length;   // first phrase is already written
+  let deleting = true;           // start by erasing it
+  let timer = 0;
+  let visible = true;
 
-    const typedObserver = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        if (typed) {
-          typed.start();
+  const tick = () => {
+    if (!visible) return;
+    const text = phrases[phrase];
 
-        } else {
-          typed = new Typed('#typed-text', {
-            strings: [
-              'Фінансова свобода.',
-              'Впевненість у завтрашньому дні.',
-              'Керування доходами.'
-            ],
+    pos += deleting ? -1 : 1;
+    typedEl.textContent = text.slice(0, pos);
 
-            typeSpeed: 50,
-            backSpeed: 30,
-            loop: true
-          });
-        }
+    let delay = deleting ? BACK_MS : TYPE_MS;
 
-      } else {
-        typed?.stop();
-      }
-    });
+    if (!deleting && pos === text.length) {
+      deleting = true;
+      delay = HOLD_MS;
+    } else if (deleting && pos === 0) {
+      deleting = false;
+      phrase = (phrase + 1) % phrases.length;
+      delay = 300;
+    }
+    timer = setTimeout(tick, delay);
+  };
 
-    typedObserver.observe(typedEl);
-  }
+  const start = () => {
+    timer = setTimeout(tick, HOLD_MS);
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting;
+        clearTimeout(timer);
+        if (visible) timer = setTimeout(tick, TYPE_MS);
+      }).observe(typedEl);
+    }
+  };
+
+  const afterLoad = () => {
+    const go = () => setTimeout(start, 3000);
+    if ('requestIdleCallback' in window) requestIdleCallback(go);
+    else go();
+  };
+
+  if (document.readyState === 'complete') afterLoad();
+  else window.addEventListener('load', afterLoad, { once: true });
 }
 
-/* ---------- 4. Відео та карта: завантаження після кліку ---------- */
+/* ---------- 4. Video and map: load on click ---------- */
 
 document.querySelectorAll('[data-embed]').forEach((box) => {
   const btn = box.querySelector('[data-embed-load]');
@@ -219,12 +187,9 @@ document.querySelectorAll('[data-embed]').forEach((box) => {
 
   btn.addEventListener('click', () => {
     const iframe = tpl.content.firstElementChild?.cloneNode(true);
-
     if (!iframe) return;
 
     box.replaceChildren(iframe);
-
     iframe.focus();
-
   }, { once: true });
 });
