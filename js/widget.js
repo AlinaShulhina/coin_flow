@@ -254,8 +254,8 @@ function createSavingsSim(root) {
   const fieldMsgs = {};            // повідомлення, прив'язані до поля
   const painted = {};              // що зараз показано під кожним полем (щоб не переписувати DOM)
   const boundsSig = {};            // підпис останніх виставлених меж поля (lo|hi|step)
+  const done = new Set();          // кроки, які користувач пройшов із коректними даними (галочка ✓)
   let step = 1;                    // поточний крок
-  let maxStep = 1;                 // найдальший відкритий крок
   let stepMsg = '';                // чому не можна перейти далі
   let actionMsg = '';              // помилка дії (збереження, поширення)
   let statusTimer = 0;
@@ -732,7 +732,7 @@ function createSavingsSim(root) {
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
   }
 
-  /* ===== Вкладки-кроки: наступна відкривається після завершення попередньої ===== */
+  /* ===== Вкладки-кроки: вільне перемикання, але дані проміжних кроків мають бути коректні ===== */
   const rawOf = (num) => (num.validity && num.validity.badInput ? 'NaN' : num.value);
 
   function fieldsValid(keys) {
@@ -762,14 +762,13 @@ function createSavingsSim(root) {
   function goTo(n, opts) {
     const o = opts || {};
     step = Math.min(Math.max(n, 1), TOTAL_STEPS);
-    maxStep = Math.max(maxStep, step);
     panels.forEach((p, i) => { p.hidden = i + 1 !== step; });
     tabs.forEach((t, i) => {
       const on = i + 1 === step;
       t.setAttribute('aria-selected', String(on));
       t.tabIndex = on ? 0 : -1;
-      t.disabled = i + 1 > maxStep;
-      t.toggleAttribute('data-done', i + 1 < maxStep);
+      t.disabled = false;                                     // усі вкладки завжди доступні
+      t.toggleAttribute('data-done', done.has(i + 1) && !on);
     });
     form.hidden = step === TOTAL_STEPS;
     el.back.hidden = step === 1;
@@ -790,7 +789,7 @@ function createSavingsSim(root) {
 
   /* Перехід на крок k: усі кроки між поточним і k мають бути заповнені коректно. */
   function requestStep(k, opts) {
-    if (k > maxStep) return;
+    if (k === step) return;
     if (k < step) commitStep(step);                           // повертаючись, не лишаємо в полі сміття
     for (let s = step; s < k; s += 1) {
       commitStep(s);
@@ -802,6 +801,7 @@ function createSavingsSim(root) {
         focusField(STEP_FIELD[s]);
         return;
       }
+      done.add(s);
     }
     goTo(k, opts);
   }
@@ -819,7 +819,7 @@ function createSavingsSim(root) {
       return;
     }
     navLock = now + NAV_LOCK_MS;
-    maxStep = Math.max(maxStep, step + 1);
+    done.add(step);
     goTo(step + 1, { focusPanel: true });
   }
 
@@ -828,18 +828,17 @@ function createSavingsSim(root) {
   el.back.addEventListener('click', () => requestStep(step - 1, { focusPanel: true }), { signal });
 
   el.tablist.addEventListener('keydown', (e) => {
-    const open = tabs.filter((t) => !t.disabled);
-    const cur = open.indexOf(document.activeElement);
+    const cur = tabs.indexOf(document.activeElement);
     if (cur < 0) return;
     let next = cur;
-    if (e.key === 'ArrowRight') next = (cur + 1) % open.length;
-    else if (e.key === 'ArrowLeft') next = (cur - 1 + open.length) % open.length;
+    if (e.key === 'ArrowRight') next = (cur + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') next = (cur - 1 + tabs.length) % tabs.length;
     else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = open.length - 1;
+    else if (e.key === 'End') next = tabs.length - 1;
     else return;
     e.preventDefault();
-    open[next].focus();
-    open[next].click();
+    tabs[next].focus();
+    tabs[next].click();
   }, { signal });
 
   /* ===== Події полів форми ===== */
@@ -918,7 +917,7 @@ function createSavingsSim(root) {
 
   el.reset.addEventListener('click', () => {
     Object.assign(state, DEFAULTS);
-    maxStep = 1;
+    done.clear();
     Object.keys(fields).forEach((key) => { invalid[key] = false; fieldMsgs[key] = ''; });
     syncControls();
     goTo(1, { focusPanel: true });
